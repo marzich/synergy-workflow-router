@@ -1,0 +1,81 @@
+{
+  "name": "synergy-workflow-router",
+  "version": "0.1.1",
+  "description": "Adaptive development workflow router for TDD, subagent orchestration, and review policies.",
+  "main": "./src/index.ts",
+  "engines": {
+    "synergy": ">=2.4.3",
+    "bun": ">=1.2.0"
+  },
+  "trust": {
+    "requestedTier": "trusted-import"
+  },
+  "permissions": {
+    "ui": {
+      "toolRenderers": false,
+      "partRenderers": false,
+      "workspacePanels": true,
+      "globalPanels": false,
+      "settings": true,
+      "themes": false,
+      "icons": false,
+      "routes": false,
+      "trustedImport": true,
+      "sandboxIframe": false
+    },
+    "tools": {
+      "invoke": true
+    }
+  },
+  "runtime": {
+    "mode": "process",
+    "timeoutMs": 30000,
+    "memoryMb": 256,
+    "resources": {
+      "cpu": "1.0",
+      "memory": "256MB"
+    }
+  },
+  "contributes": {
+    "ui": {
+      "entry": "./dist/ui/index.js",
+      "minUIApiVersion": "2.0.0",
+      "workspacePanels": [
+        {
+          "id": "dev-flow-router",
+          "label": "Dev Flow",
+          "icon": "route",
+          "exportName": "DevFlowPanel"
+        }
+      ],
+      "settings": [
+        {
+          "id": "dev-flow-settings",
+          "label": "Dev Flow Router",
+          "icon": "settings",
+          "group": "plugins",
+          "exportName": "SettingsPanel"
+        }
+      ]
+    },
+    "tools": [
+      {
+        "name": "workflow_route",
+        "title": "Workflow Route",
+        "description": "Classify a development task and produce a recommended workflow route.",
+        "capabilities": {
+          "filesystem": "none",
+          "network": false,
+          "shell": false
+        }
+      }
+    ],
+    "commands": [
+      {
+        "name": "dev-change",
+        "description": "Generate an adaptive development workflow prompt."
+      }
+    ]
+  },
+  "icon": "icons/market.svg"
+}

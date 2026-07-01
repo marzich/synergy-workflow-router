@@ -1,0 +1,24 @@
+{
+  "name": "synergy-workflow-router",
+  "version": "0.1.1",
+  "description": "Adaptive development workflow router for TDD, subagent orchestration, and review policies.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "synergy-plugin build",
+    "pack:plugin": "synergy-plugin pack",
+    "validate:plugin": "synergy-plugin validate --runtime-discovery",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@ericsanchezok/synergy-plugin": "^2.4.3",
+    "solid-js": "^1.8.22",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@ericsanchezok/synergy-plugin-kit": "^2.4.3",
+    "@types/bun": "latest",
+    "typescript": "^5.5.4"
+  }
+}
