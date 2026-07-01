@@ -1,6 +1,6 @@
 {
   "name": "synergy-workflow-router",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Adaptive development workflow router for TDD, subagent orchestration, and review policies.",
   "main": "./src/index.ts",
   "engines": {
