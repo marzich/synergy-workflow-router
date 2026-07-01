@@ -1,15 +1,5 @@
 import { createSignal, createMemo, Show, For, Component } from "solid-js";
-import h from "solid-js/h";
-import type {
-  PluginPanelProps,
-  PluginSettingsProps,
-} from "@ericsanchezok/synergy-plugin/ui";
-
-const React = { createElement: h };
-
-// ---------------------------------------------------------------------------
-// Import shared types from router core
-// ---------------------------------------------------------------------------
+import type { PluginPanelProps, PluginSettingsProps } from "@ericsanchezok/synergy-plugin/ui";
 
 import type {
   WorkflowRequest,
@@ -22,236 +12,186 @@ import type {
 import { routeWorkflow } from "./router/route";
 import { generateWorkflowPrompt } from "./router/prompt";
 
-// UI-only concepts (not yet in router schema)
 type WorktreePolicy = "clean" | "dirty" | "fresh";
 type CodexPolicy = "none" | "investigation_only" | "full";
 
-// ---------------------------------------------------------------------------
-// Select option helpers
-// ---------------------------------------------------------------------------
+// ── Option data ──
 
-const URGENCY_OPTIONS: { value: Urgency; label: string }[] = [
-  { value: "immediate", label: "Immediate — now / blocking" },
-  { value: "normal", label: "Normal — this week / sprint" },
-  { value: "research", label: "Research — investigation only" },
+const URGENCY_OPTIONS = [
+  { value: "immediate" as Urgency, label: "Immediate" },
+  { value: "normal" as Urgency, label: "Normal" },
+  { value: "research" as Urgency, label: "Research" },
 ];
-
-const TASK_TYPE_OPTIONS: { value: TaskType; label: string }[] = [
-  { value: "feature", label: "Feature" },
-  { value: "bug", label: "Bug Fix" },
-  { value: "refactor", label: "Refactor" },
-  { value: "synergy_self_mod", label: "Synergy Self-Mod" },
-  { value: "ui_polish", label: "UI Polish" },
-  { value: "research", label: "Research" },
-  { value: "other", label: "Other" },
+const TASK_TYPE_OPTIONS = [
+  { value: "feature" as TaskType, label: "Feature" },
+  { value: "bug" as TaskType, label: "Bug Fix" },
+  { value: "refactor" as TaskType, label: "Refactor" },
+  { value: "synergy_self_mod" as TaskType, label: "Synergy Self-Mod" },
+  { value: "ui_polish" as TaskType, label: "UI Polish" },
+  { value: "research" as TaskType, label: "Research" },
+  { value: "other" as TaskType, label: "Other" },
 ];
-
-const COMPLEXITY_OPTIONS: { value: Complexity; label: string }[] = [
-  { value: "trivial", label: "Trivial — single line or config" },
-  { value: "local", label: "Local — single file, well-understood" },
-  { value: "module", label: "Module — multiple files" },
-  { value: "cross_module", label: "Cross-Module — architectural" },
-  { value: "system", label: "System — multi-system, novel" },
+const COMPLEXITY_OPTIONS = [
+  { value: "trivial" as Complexity, label: "Trivial" },
+  { value: "local" as Complexity, label: "Local" },
+  { value: "module" as Complexity, label: "Module" },
+  { value: "cross_module" as Complexity, label: "Cross-Module" },
+  { value: "system" as Complexity, label: "System" },
 ];
-
-const WORKTREE_OPTIONS: { value: WorktreePolicy; label: string }[] = [
-  { value: "clean", label: "Clean — new branch from latest" },
-  { value: "dirty", label: "Dirty — work in current branch" },
-  { value: "fresh", label: "Fresh — clone repo fresh + new branch" },
+const WORKTREE_OPTIONS = [
+  { value: "clean" as WorktreePolicy, label: "Clean" },
+  { value: "dirty" as WorktreePolicy, label: "Dirty" },
+  { value: "fresh" as WorktreePolicy, label: "Fresh" },
 ];
-
-const CODEX_OPTIONS: { value: CodexPolicy; label: string }[] = [
-  { value: "none", label: "None — skip Codex" },
-  { value: "investigation_only", label: "Investigation only — pre-fix gate" },
-  { value: "full", label: "Full — investigation + implementation" },
+const CODEX_OPTIONS = [
+  { value: "none" as CodexPolicy, label: "Skip" },
+  { value: "investigation_only" as CodexPolicy, label: "Investigate" },
+  { value: "full" as CodexPolicy, label: "Full" },
 ];
-
-const RISK_SURFACES: { value: RiskSurface; label: string }[] = [
-  { value: "api", label: "API / contract changes" },
-  { value: "security", label: "Security surface" },
-  { value: "performance", label: "Performance / latency" },
-  { value: "docs", label: "Documentation" },
-  { value: "migration", label: "Migration / compatibility" },
+const RISK_SURFACES = [
+  { value: "api" as RiskSurface, label: "API" },
+  { value: "security" as RiskSurface, label: "Security" },
+  { value: "performance" as RiskSurface, label: "Perf" },
+  { value: "docs" as RiskSurface, label: "Docs" },
+  { value: "migration" as RiskSurface, label: "Migrate" },
 ];
-
-const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "— unspecified —" },
-  { value: "typescript", label: "TypeScript" },
-  { value: "python", label: "Python" },
-  { value: "rust", label: "Rust" },
+const LANGUAGE_OPTIONS = [
+  { value: "", label: "—" },
+  { value: "typescript", label: "TS" },
+  { value: "python", label: "PY" },
+  { value: "rust", label: "RS" },
   { value: "go", label: "Go" },
   { value: "java", label: "Java" },
-  { value: "kotlin", label: "Kotlin" },
+  { value: "kotlin", label: "KT" },
   { value: "swift", label: "Swift" },
   { value: "csharp", label: "C#" },
   { value: "cpp", label: "C++" },
 ];
 
-// ---------------------------------------------------------------------------
-// Hardcoded settings defaults
-// ---------------------------------------------------------------------------
-
-interface DefaultSettings {
-  codex: CodexPolicy;
-  worktree: WorktreePolicy;
-  autoReview: boolean;
-  tddDefault: string;
-  maxSubagents: number;
-}
-
-const DEFAULTS: DefaultSettings = {
-  codex: "investigation_only",
-  worktree: "clean",
+const DEFAULTS = {
+  codex: "investigation_only" as CodexPolicy,
+  worktree: "clean" as WorktreePolicy,
   autoReview: true,
   tddDefault: "full_red_green",
   maxSubagents: 4,
 };
 
-// ---------------------------------------------------------------------------
-// Shared inline styles (avoid external CSS dependency)
-// ---------------------------------------------------------------------------
+// ── Sub-components ──
 
-const styles = {
-  panel: {
-    padding: "16px",
-    fontFamily: "var(--synergy-font-family, system-ui, sans-serif)",
-    fontSize: "14px",
-    color: "var(--synergy-text-primary, #e0e0e0)",
-    background: "var(--synergy-bg-primary, #1e1e1e)",
-    height: "100%",
-    overflowY: "auto" as const,
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "16px",
-  },
-  sectionTitle: {
-    fontSize: "13px",
-    fontWeight: 600,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.5px",
-    color: "var(--synergy-text-secondary, #888)",
-    marginBottom: "8px",
-  },
-  label: {
-    display: "block",
-    fontSize: "13px",
-    fontWeight: 500,
-    marginBottom: "4px",
-    color: "var(--synergy-text-secondary, #aaa)",
-  },
-  select: {
-    width: "100%",
-    padding: "6px 10px",
-    fontSize: "13px",
-    border: "1px solid var(--synergy-border, #444)",
-    borderRadius: "4px",
-    background: "var(--synergy-input-bg, #2a2a2a)",
-    color: "var(--synergy-text-primary, #e0e0e0)",
-    outline: "none",
-  },
-  textarea: {
-    width: "100%",
-    minHeight: "80px",
-    padding: "8px 10px",
-    fontSize: "13px",
-    border: "1px solid var(--synergy-border, #444)",
-    borderRadius: "4px",
-    background: "var(--synergy-input-bg, #2a2a2a)",
-    color: "var(--synergy-text-primary, #e0e0e0)",
-    resize: "vertical" as const,
-    outline: "none",
-    fontFamily: "inherit",
-  },
-  checkboxRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    marginBottom: "4px",
-  },
-  checkbox: {
-    accentColor: "var(--synergy-accent, #4fc3f7)",
-  },
-  button: {
-    padding: "6px 14px",
-    fontSize: "13px",
-    fontWeight: 500,
-    border: "1px solid var(--synergy-border, #444)",
-    borderRadius: "4px",
-    background: "var(--synergy-button-bg, #333)",
-    color: "var(--synergy-text-primary, #e0e0e0)",
-    cursor: "pointer",
-  },
-  preBlock: {
-    padding: "12px",
-    fontSize: "12px",
-    fontFamily: "var(--synergy-mono-font, 'Menlo', 'Monaco', monospace)",
-    background: "var(--synergy-code-bg, #111)",
-    border: "1px solid var(--synergy-border, #444)",
-    borderRadius: "4px",
-    color: "var(--synergy-text-primary, #e0e0e0)",
-    whiteSpace: "pre-wrap" as const,
-    wordBreak: "break-word" as const,
-    maxHeight: "320px",
-    overflowY: "auto" as const,
-  },
-  previewCard: {
-    padding: "12px",
-    border: "1px solid var(--synergy-border, #444)",
-    borderRadius: "4px",
-    background: "var(--synergy-card-bg, #252525)",
-    fontSize: "13px",
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "8px",
-  },
-  badge: {
-    display: "inline-block",
-    padding: "2px 8px",
-    fontSize: "11px",
-    fontWeight: 600,
-    borderRadius: "3px",
-    background: "var(--synergy-accent-dim, rgba(79, 195, 247, 0.15))",
-    color: "var(--synergy-accent, #4fc3f7)",
-  },
-  settingsTable: {
-    width: "100%",
-    borderCollapse: "collapse" as const,
-    fontSize: "13px",
-  },
-  settingsCell: {
-    padding: "6px 10px",
-    borderBottom: "1px solid var(--synergy-border, #333)",
-  },
-  notice: {
-    padding: "10px 12px",
-    fontSize: "12px",
-    background: "var(--synergy-notice-bg, rgba(255, 193, 7, 0.12))",
-    border: "1px solid var(--synergy-notice-border, rgba(255, 193, 7, 0.3))",
-    borderRadius: "4px",
-    color: "var(--synergy-notice-text, #ffc107)",
-    lineHeight: 1.5,
-  },
-  errorNotice: {
-    padding: "10px 12px",
-    fontSize: "12px",
-    background: "var(--synergy-error-bg, rgba(239, 83, 80, 0.12))",
-    border: "1px solid var(--synergy-error-border, rgba(239, 83, 80, 0.3))",
-    borderRadius: "4px",
-    color: "var(--synergy-error-text, #ef5350)",
-  },
-  helpText: {
-    fontSize: "11px",
-    color: "var(--synergy-text-muted, #666)",
-    marginTop: "2px",
-  },
-};
+function Section(p: { title: string; defaultOpen?: boolean; children: any }) {
+  const [open, setOpen] = createSignal(p.defaultOpen ?? true);
+  return (
+    <div style={{ "min-width": "0", "max-width": "100%", "box-sizing": "border-box" }}>
+      <div
+        style={{
+          display: "flex", "align-items": "center", gap: "6px", padding: "5px 8px",
+          cursor: "pointer", "border-radius": "4px",
+          background: "var(--synergy-card-bg, #252525)",
+          border: "1px solid var(--synergy-border, #333)",
+          "user-select": "none", "font-size": "12px", "font-weight": "600",
+          color: "var(--synergy-text-primary, #d4d4d4)",
+        }}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span style={{
+          display: "inline-block", transition: "transform 0.15s",
+          transform: open() ? "rotate(90deg)" : "rotate(0deg)",
+          "font-size": "10px", color: "var(--synergy-text-muted, #666)",
+          "flex-shrink": "0",
+        }}>▸</span>
+        <span>{p.title}</span>
+      </div>
+      <Show when={open()}>
+        <div style={{
+          padding: "5px 0", display: "flex", "flex-direction": "column", gap: "5px",
+          "min-width": "0", "max-width": "100%", "box-sizing": "border-box",
+        }}>
+          {p.children}
+        </div>
+      </Show>
+    </div>
+  );
+}
 
-// ---------------------------------------------------------------------------
-// DevFlowPanel — workspace panel
-// ---------------------------------------------------------------------------
+function Chips(p: { items: { value: RiskSurface; label: string }[]; selected: () => RiskSurface[]; onToggle: (v: RiskSurface) => void }) {
+  return (
+    <div style={{ display: "flex", "flex-wrap": "wrap", gap: "4px", "max-width": "100%", "min-width": "0" }}>
+      <For each={p.items}>
+        {(s) => {
+          const active = () => p.selected().includes(s.value);
+          return (
+            <div
+              style={{
+                padding: "2px 7px", "font-size": "11px", "border-radius": "3px", cursor: "pointer",
+                border: active() ? "1px solid var(--synergy-accent, #4fc3f7)" : "1px solid var(--synergy-border, #444)",
+                background: active() ? "var(--synergy-accent-dim, rgba(79,195,247,0.12))" : "transparent",
+                color: active() ? "var(--synergy-accent, #4fc3f7)" : "var(--synergy-text-secondary, #999)",
+                "font-weight": active() ? "600" : "400", "user-select": "none", "flex-shrink": "0",
+              }}
+              onClick={() => p.onToggle(s.value)}
+            >{s.label}</div>
+          );
+        }}
+      </For>
+    </div>
+  );
+}
+
+function SelectField(p: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  return (
+    <div style={{ "min-width": "0", "max-width": "100%", "box-sizing": "border-box" }}>
+      <div style={{
+        display: "block", "font-size": "10px", "font-weight": "500", "margin-bottom": "2px",
+        color: "var(--synergy-text-secondary, #999)", "text-transform": "uppercase", "letter-spacing": "0.3px",
+      }}>{p.label}</div>
+      <select
+        style={{
+          display: "block", width: "100%", "max-width": "100%", "box-sizing": "border-box",
+          padding: "3px 5px", "font-size": "12px", border: "1px solid var(--synergy-border, #444)",
+          "border-radius": "4px", background: "var(--synergy-input-bg, #2a2a2a)",
+          color: "var(--synergy-text-primary, #e0e0e0)", outline: "none", "min-width": "0",
+        }}
+        value={p.value}
+        onChange={(e) => p.onChange(e.currentTarget.value)}
+      >
+        <For each={p.options}>{(o) => <option value={o.value}>{o.label}</option>}</For>
+      </select>
+    </div>
+  );
+}
+
+function Badge(p: { color?: string; children: any }) {
+  return (
+    <span style={{
+      display: "inline-block", padding: "1px 6px", "font-size": "10px", "font-weight": "600",
+      "border-radius": "3px", "flex-shrink": "0",
+      background: p.color ? "rgba(255,255,255,0.06)" : "var(--synergy-accent-dim, rgba(79,195,247,0.12))",
+      color: p.color || "var(--synergy-accent, #4fc3f7)",
+    }}>{p.children}</span>
+  );
+}
+
+function PRow(p: { label: string; children: any }) {
+  return (
+    <div style={{
+      display: "flex", "align-items": "baseline", gap: "4px", "flex-wrap": "wrap",
+      "min-width": "0", "max-width": "100%",
+    }}>
+      <span style={{
+        "font-weight": "600", color: "var(--synergy-text-secondary, #999)", "flex-shrink": "0",
+        "font-size": "10px", "text-transform": "uppercase", "letter-spacing": "0.2px",
+      }}>{p.label}</span>
+      <span style={{
+        color: "var(--synergy-text-primary, #d4d4d4)", "word-break": "break-all",
+        "min-width": "0", "font-size": "11px",
+      }}>{p.children}</span>
+    </div>
+  );
+}
+
+// ── DevFlowPanel ──
 
 export const DevFlowPanel: Component<PluginPanelProps> = (_props) => {
-  // Form state
   const [description, setDescription] = createSignal("");
   const [urgency, setUrgency] = createSignal<Urgency>("normal");
   const [taskType, setTaskType] = createSignal<TaskType>("feature");
@@ -260,12 +200,10 @@ export const DevFlowPanel: Component<PluginPanelProps> = (_props) => {
   const [codex, setCodex] = createSignal<CodexPolicy>("investigation_only");
   const [riskSurfaces, setRiskSurfaces] = createSignal<RiskSurface[]>([]);
   const [language, setLanguage] = createSignal("");
+  const [showPrompt, setShowPrompt] = createSignal(false);
 
-  // Derived route result
   const routeInput = createMemo<WorkflowRequest>(() => ({
-    urgency: urgency(),
-    type: taskType(),
-    complexity: complexity(),
+    urgency: urgency(), type: taskType(), complexity: complexity(),
     scope: description() || undefined,
     language: language() || undefined,
     riskSurfaces: riskSurfaces(),
@@ -275,9 +213,7 @@ export const DevFlowPanel: Component<PluginPanelProps> = (_props) => {
     try {
       if (typeof routeWorkflow !== "function") return null;
       return routeWorkflow(routeInput());
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   });
 
   const promptText = createMemo<string>(() => {
@@ -286,316 +222,233 @@ export const DevFlowPanel: Component<PluginPanelProps> = (_props) => {
     try {
       if (typeof generateWorkflowPrompt !== "function") return "";
       return generateWorkflowPrompt(route);
-    } catch {
-      return "";
-    }
+    } catch { return ""; }
   });
 
   const routerAvailable = createMemo(() => routeResult() !== null);
 
-  const toggleRisk = (surface: RiskSurface) => {
-    setRiskSurfaces((prev) =>
-      prev.includes(surface)
-        ? prev.filter((s) => s !== surface)
-        : [...prev, surface],
-    );
-  };
+  const toggleRisk = (s: RiskSurface) =>
+    setRiskSurfaces((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
 
   const copyPrompt = async () => {
-    const text = promptText();
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // fallback: select the pre content so user can Ctrl+C
+    setShowPrompt(true);
+    try { await navigator.clipboard.writeText(promptText()); } catch {
       const el = document.getElementById("wf-prompt-output");
       if (el) {
         const sel = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(el);
+        const r = document.createRange();
+        r.selectNodeContents(el);
         sel?.removeAllRanges();
-        sel?.addRange(range);
+        sel?.addRange(r);
       }
     }
   };
 
   return (
-    <div style={styles.panel}>
-      {/* ---- Task Description ---- */}
-      <div>
-        <label style={styles.label} for="wf-desc">
-          Task Description
-        </label>
-        <textarea
-          id="wf-desc"
-          style={styles.textarea}
-          placeholder="What needs to be done? (e.g., 'add dark mode toggle to settings', 'fix race condition in message queue')"
-          value={description()}
-          onInput={(e) => setDescription(e.currentTarget.value)}
-        />
-      </div>
-
-      {/* ---- Urgency + Task Type row ---- */}
-      <div style={{ display: "flex", gap: "12px" }}>
-        <div style={{ flex: 1 }}>
-          <label style={styles.label} for="wf-urgency">
-            Urgency
-          </label>
-          <select
-            id="wf-urgency"
-            style={styles.select}
-            value={urgency()}
-            onChange={(e) => setUrgency(e.currentTarget.value as Urgency)}
-          >
-            <For each={URGENCY_OPTIONS}>
-              {(opt) => <option value={opt.value}>{opt.label}</option>}
-            </For>
-          </select>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={styles.label} for="wf-type">
-            Task Type
-          </label>
-          <select
-            id="wf-type"
-            style={styles.select}
-            value={taskType()}
-            onChange={(e) => setTaskType(e.currentTarget.value as TaskType)}
-          >
-            <For each={TASK_TYPE_OPTIONS}>
-              {(opt) => <option value={opt.value}>{opt.label}</option>}
-            </For>
-          </select>
-        </div>
-      </div>
-
-      {/* ---- Complexity + Worktree row ---- */}
-      <div style={{ display: "flex", gap: "12px" }}>
-        <div style={{ flex: 1 }}>
-          <label style={styles.label} for="wf-complexity">
-            Complexity
-          </label>
-          <select
-            id="wf-complexity"
-            style={styles.select}
-            value={complexity()}
-            onChange={(e) =>
-              setComplexity(e.currentTarget.value as Complexity)
-            }
-          >
-            <For each={COMPLEXITY_OPTIONS}>
-              {(opt) => <option value={opt.value}>{opt.label}</option>}
-            </For>
-          </select>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={styles.label} for="wf-worktree">
-            Worktree
-          </label>
-          <select
-            id="wf-worktree"
-            style={styles.select}
-            value={worktree()}
-            onChange={(e) =>
-              setWorktree(e.currentTarget.value as WorktreePolicy)
-            }
-          >
-            <For each={WORKTREE_OPTIONS}>
-              {(opt) => <option value={opt.value}>{opt.label}</option>}
-            </For>
-          </select>
-        </div>
-      </div>
-
-      {/* ---- Codex + Language row ---- */}
-      <div style={{ display: "flex", gap: "12px" }}>
-        <div style={{ flex: 1 }}>
-          <label style={styles.label} for="wf-codex">
-            Codex
-          </label>
-          <select
-            id="wf-codex"
-            style={styles.select}
-            value={codex()}
-            onChange={(e) => setCodex(e.currentTarget.value as CodexPolicy)}
-          >
-            <For each={CODEX_OPTIONS}>
-              {(opt) => <option value={opt.value}>{opt.label}</option>}
-            </For>
-          </select>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={styles.label} for="wf-language">
-            Language (optional)
-          </label>
-          <select
-            id="wf-language"
-            style={styles.select}
-            value={language()}
-            onChange={(e) => setLanguage(e.currentTarget.value)}
-          >
-            <For each={LANGUAGE_OPTIONS}>
-              {(opt) => <option value={opt.value}>{opt.label}</option>}
-            </For>
-          </select>
-        </div>
-      </div>
-
-      {/* ---- Risk Surfaces ---- */}
-      <div>
-        <div style={styles.sectionTitle}>Risk Surfaces</div>
-        <For each={RISK_SURFACES}>
-          {(surface) => (
-            <label style={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                style={styles.checkbox}
-                checked={riskSurfaces().includes(surface.value)}
-                onChange={() => toggleRisk(surface.value)}
-              />
-              {surface.label}
-            </label>
-          )}
-        </For>
-      </div>
-
-      {/* ---- Workflow Preview ---- */}
-      <div>
-        <div style={styles.sectionTitle}>Workflow Preview</div>
-        <Show
-          when={routerAvailable()}
-          fallback={
-            <div style={styles.notice}>
-              Router unavailable. Check the plugin console and verify the router
-              modules are included in the built UI bundle.
-            </div>
-          }
-        >
-          <div style={styles.previewCard}>
-            <div>
-              <span style={{ "font-weight": 600 }}>Tier:</span>{" "}
-              <span style={styles.badge}>{routeResult()!.tier}</span>
-            </div>
-            <div>
-              <span style={{ "font-weight": 600 }}>TDD:</span>{" "}
-              <span style={styles.badge}>{routeResult()!.tddPolicy.mode}</span>
-              <div style={styles.helpText}>{routeResult()!.tddPolicy.description}</div>
-            </div>
-            <div>
-              <span style={{ "font-weight": 600 }}>Stages:</span>{" "}
-              {routeResult()!.stages.join(" → ")}
-            </div>
-            <div>
-              <span style={{ "font-weight": 600 }}>Subagents (required):</span>{" "}
-              {routeResult()!.subagentPlan.required.length > 0
-                ? routeResult()!.subagentPlan.required.join(", ")
-                : "none"}
-            </div>
-            <div>
-              <span style={{ "font-weight": 600 }}>Reviewers:</span>{" "}
-              {routeResult()!.reviewPolicy.reviewers.length > 0
-                ? routeResult()!.reviewPolicy.reviewers.join(", ")
-                : "none"}
-            </div>
-            <div>
-              <span style={{ "font-weight": 600 }}>Loop:</span>{" "}
-              <span style={styles.badge}>{routeResult()!.loopPolicy}</span>
-            </div>
-          </div>
+    <div style={{
+      display: "flex", "flex-direction": "column", height: "100%", overflow: "hidden",
+      "font-size": "12px", color: "var(--synergy-text-primary, #d4d4d4)",
+      background: "var(--synergy-bg-primary, #1e1e1e)",
+      "font-family": "var(--synergy-font-family, system-ui, sans-serif)",
+      "box-sizing": "border-box", "min-width": "0", "max-width": "100%",
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex", "align-items": "center", gap: "6px", padding: "7px 10px",
+        "border-bottom": "1px solid var(--synergy-border, #333)", "font-size": "12px",
+        "font-weight": "600", color: "var(--synergy-text-primary, #e0e0e0)", "flex-shrink": "0",
+        background: "var(--synergy-bg-secondary, #252525)",
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+        </svg>
+        Workflow Router
+        <Show when={routerAvailable() && routeResult()}>
+          <Badge>{routeResult()!.tier}</Badge>
         </Show>
       </div>
 
-      {/* ---- Generated Prompt ---- */}
-      <Show when={promptText()}>
-        <div>
-          <div
+      {/* Scrollable body */}
+      <div style={{
+        flex: "1", "overflow-y": "auto", "overflow-x": "hidden", padding: "8px 10px",
+        display: "flex", "flex-direction": "column", gap: "4px", "min-width": "0",
+        "max-width": "100%", "box-sizing": "border-box",
+      }}>
+        {/* Task */}
+        <Section title="Task">
+          <textarea
             style={{
-              display: "flex",
-              "justify-content": "space-between",
-              "align-items": "center",
-              "margin-bottom": "8px",
+              display: "block", width: "100%", "max-width": "100%", "box-sizing": "border-box",
+              "min-height": "52px", padding: "6px 8px", "font-size": "12px", "font-family": "inherit",
+              border: "1px solid var(--synergy-border, #444)", "border-radius": "4px",
+              background: "var(--synergy-input-bg, #2a2a2a)",
+              color: "var(--synergy-text-primary, #e0e0e0)", resize: "vertical", outline: "none",
+              "min-width": "0",
             }}
+            placeholder='e.g., "add dark mode toggle"'
+            value={description()}
+            onInput={(e) => setDescription(e.currentTarget.value)}
+          />
+        </Section>
+
+        {/* Route Config */}
+        <Section title="Route">
+          <SelectField label="Urgency" value={urgency()} onChange={(v) => setUrgency(v as Urgency)} options={URGENCY_OPTIONS} />
+          <SelectField label="Type" value={taskType()} onChange={(v) => setTaskType(v as TaskType)} options={TASK_TYPE_OPTIONS} />
+          <SelectField label="Complexity" value={complexity()} onChange={(v) => setComplexity(v as Complexity)} options={COMPLEXITY_OPTIONS} />
+          <SelectField label="Language" value={language()} onChange={setLanguage} options={LANGUAGE_OPTIONS} />
+        </Section>
+
+        {/* Risk & Policy */}
+        <Section title="Risk &amp; Policy">
+          <div style={{
+            "font-size": "10px", "font-weight": "500", "margin-bottom": "2px",
+            color: "var(--synergy-text-secondary, #999)", "text-transform": "uppercase",
+            "letter-spacing": "0.3px",
+          }}>Risk Surfaces</div>
+          <Chips items={RISK_SURFACES} selected={riskSurfaces} onToggle={toggleRisk} />
+          <SelectField label="Worktree" value={worktree()} onChange={(v) => setWorktree(v as WorktreePolicy)} options={WORKTREE_OPTIONS} />
+          <SelectField label="Codex" value={codex()} onChange={(v) => setCodex(v as CodexPolicy)} options={CODEX_OPTIONS} />
+        </Section>
+
+        {/* Preview */}
+        <Section title="Preview">
+          <Show
+            when={routerAvailable()}
+            fallback={
+              <div style={{
+                padding: "6px 8px", "font-size": "11px",
+                background: "var(--synergy-notice-bg, rgba(255,193,7,0.10))",
+                border: "1px solid var(--synergy-notice-border, rgba(255,193,7,0.25))",
+                "border-radius": "4px", color: "var(--synergy-notice-text, #e2b714)",
+              }}>Router unavailable — check plugin console.</div>
+            }
           >
-            <div style={styles.sectionTitle}>Generated Workflow Prompt</div>
-            <button style={styles.button} onClick={copyPrompt}>
-              Copy
-            </button>
-          </div>
-          <pre id="wf-prompt-output" style={styles.preBlock}>
-            {promptText()}
-          </pre>
-        </div>
-      </Show>
+            <div style={{
+              display: "flex", "flex-direction": "column", gap: "4px", padding: "7px",
+              "border-radius": "4px", background: "var(--synergy-card-bg, #252525)",
+              border: "1px solid var(--synergy-border, #333)", "font-size": "11px",
+              "line-height": "1.45", "min-width": "0", "max-width": "100%", "box-sizing": "border-box",
+            }}>
+              <PRow label="Tier"><Badge>{routeResult()!.tier}</Badge></PRow>
+              <PRow label="TDD">
+                <Badge color="var(--synergy-text-muted, #888)">{routeResult()!.tddPolicy.mode}</Badge>{' '}
+                <span style={{ color: "var(--synergy-text-muted, #666)", "font-size": "10px" }}>
+                  {routeResult()!.tddPolicy.description}
+                </span>
+              </PRow>
+              <PRow label="Stages">{routeResult()!.stages.join(" → ")}</PRow>
+              <Show when={routeResult()!.subagentPlan.required.length > 0}>
+                <PRow label="Agents">{routeResult()!.subagentPlan.required.join(", ")}</PRow>
+              </Show>
+              <Show when={routeResult()!.reviewPolicy.reviewers.length > 0}>
+                <PRow label="Review">{routeResult()!.reviewPolicy.reviewers.join(", ")}</PRow>
+              </Show>
+              <PRow label="Loop">
+                <Badge color="var(--synergy-text-muted, #888)">{routeResult()!.loopPolicy}</Badge>
+              </PRow>
+            </div>
+          </Show>
+        </Section>
+
+        {/* Copy button */}
+        <Show when={promptText()}>
+          <button
+            style={{
+              display: "block", width: "100%", "max-width": "100%", "box-sizing": "border-box",
+              padding: "5px 0", "font-size": "12px", "font-weight": "500",
+              border: "1px solid var(--synergy-accent, #4fc3f7)", "border-radius": "4px",
+              background: "var(--synergy-accent-dim, rgba(79,195,247,0.10))",
+              color: "var(--synergy-accent, #4fc3f7)", cursor: "pointer", "text-align": "center",
+              "min-width": "0",
+            }}
+            onClick={copyPrompt}
+          >📋 Copy Prompt</button>
+        </Show>
+
+        {/* Prompt output */}
+        <Show when={showPrompt() && promptText()}>
+          <Section title="Prompt" defaultOpen={true}>
+            <pre
+              id="wf-prompt-output"
+              style={{
+                padding: "8px", "font-size": "11px", "font-family": "var(--synergy-mono-font, monospace)",
+                background: "var(--synergy-code-bg, #0d0d0d)", border: "1px solid var(--synergy-border, #444)",
+                "border-radius": "4px", color: "var(--synergy-text-primary, #e0e0e0)",
+                "white-space": "pre-wrap", "word-break": "break-word", "overflow-wrap": "break-word",
+                "max-height": "240px", "overflow-y": "auto", "overflow-x": "hidden",
+                "max-width": "100%", "box-sizing": "border-box", "min-width": "0", "line-height": "1.4",
+                margin: "0",
+              }}
+            >{promptText()}</pre>
+          </Section>
+        </Show>
+
+        {/* No router fallback (hidden when sections above cover it) */}
+        <Show when={!routerAvailable() && !promptText()}>
+          <div style={{
+            padding: "6px 8px", "font-size": "11px",
+            background: "var(--synergy-notice-bg, rgba(255,193,7,0.10))",
+            border: "1px solid var(--synergy-notice-border, rgba(255,193,7,0.25))",
+            "border-radius": "4px", color: "var(--synergy-notice-text, #e2b714)",
+          }}>Router unavailable — check plugin console.</div>
+        </Show>
+      </div>
     </div>
   );
 };
 
-// ---------------------------------------------------------------------------
-// SettingsPanel — plugin settings
-// ---------------------------------------------------------------------------
+// ── SettingsPanel ──
 
 export const SettingsPanel: Component<PluginSettingsProps> = (props) => {
+  const rows = [
+    ["Codex", DEFAULTS.codex],
+    ["Worktree", DEFAULTS.worktree],
+    ["TDD", DEFAULTS.tddDefault],
+    ["Auto-Review", DEFAULTS.autoReview ? "Yes" : "No"],
+    ["Max Subagents", String(DEFAULTS.maxSubagents)],
+  ] as const;
   return (
-    <div style={styles.panel}>
-      <div>
-        <div style={styles.sectionTitle}>Default Workflow Preferences</div>
-        <div style={styles.helpText}>
-          These defaults are used when no explicit overrides are provided in the
-          workflow panel.
+    <div style={{
+      display: "flex", "flex-direction": "column", height: "100%",
+      "font-size": "12px", color: "var(--synergy-text-primary, #d4d4d4)",
+      background: "var(--synergy-bg-primary, #1e1e1e)",
+      "font-family": "var(--synergy-font-family, system-ui, sans-serif)",
+    }}>
+      <div style={{
+        padding: "7px 10px", "font-weight": "600",
+        "border-bottom": "1px solid var(--synergy-border, #333)",
+      }}>Settings</div>
+      <div style={{ padding: "10px", display: "flex", "flex-direction": "column", gap: "6px" }}>
+        <div style={{
+          padding: "8px", "border-radius": "4px",
+          background: "var(--synergy-card-bg, #252525)",
+          border: "1px solid var(--synergy-border, #333)",
+        }}>
+          <table style={{ width: "100%", "font-size": "12px" }}>
+            <tbody>
+              <For each={rows}>{(row) => (
+                <tr>
+                  <td style={{ padding: "4px 6px", "font-weight": "600", "border-bottom": "1px solid var(--synergy-border, #333)" }}>{row[0]}</td>
+                  <td style={{ padding: "4px 6px", "border-bottom": "1px solid var(--synergy-border, #333)" }}>{row[1]}</td>
+                </tr>
+              )}</For>
+            </tbody>
+          </table>
         </div>
+        <div style={{
+          padding: "6px 8px", "font-size": "11px",
+          background: "var(--synergy-notice-bg, rgba(255,193,7,0.10))",
+          border: "1px solid var(--synergy-notice-border, rgba(255,193,7,0.25))",
+          "border-radius": "4px", color: "var(--synergy-notice-text, #e2b714)",
+        }}>MVP — editable persistence coming in a future release.</div>
+        <Show when={props.onChange}>
+          <div style={{ "font-size": "10px", color: "var(--synergy-text-muted, #666)" }}>
+            Connected ({props.pluginId})
+          </div>
+        </Show>
       </div>
-
-      {/* ---- Defaults table ---- */}
-      <table style={styles.settingsTable}>
-        <tbody>
-          <tr>
-            <td style={{ ...styles.settingsCell, "font-weight": 600 }}>
-              Default Codex Policy
-            </td>
-            <td style={styles.settingsCell}>{DEFAULTS.codex}</td>
-          </tr>
-          <tr>
-            <td style={{ ...styles.settingsCell, "font-weight": 600 }}>
-              Default Worktree Policy
-            </td>
-            <td style={styles.settingsCell}>{DEFAULTS.worktree}</td>
-          </tr>
-          <tr>
-            <td style={{ ...styles.settingsCell, "font-weight": 600 }}>
-              Default TDD Policy
-            </td>
-            <td style={styles.settingsCell}>{DEFAULTS.tddDefault}</td>
-          </tr>
-          <tr>
-            <td style={{ ...styles.settingsCell, "font-weight": 600 }}>
-              Auto-Review
-            </td>
-            <td style={styles.settingsCell}>
-              {DEFAULTS.autoReview ? "enabled" : "disabled"}
-            </td>
-          </tr>
-          <tr>
-            <td style={{ ...styles.settingsCell, "font-weight": 600 }}>
-              Max Subagents
-            </td>
-            <td style={styles.settingsCell}>{DEFAULTS.maxSubagents}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ---- MVP notice ---- */}
-      <div style={styles.notice}>
-        <strong>MVP scope note:</strong> Editable persistence of these settings
-        is out of scope for the initial release. Future versions will support
-        saving preferences per scope with the Synergy plugin settings API.
-      </div>
-
-      {/* ---- Output current values so the settings surface is wired ---- */}
-      <Show when={props.onChange}>
-        <div style={styles.helpText}>
-          Settings surface is connected ({props.pluginId}).
-        </div>
-      </Show>
     </div>
   );
 };
