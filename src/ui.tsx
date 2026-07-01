@@ -1,3 +1,7 @@
+import h from "solid-js/h";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const React = { createElement: h };
+
 import { createSignal, createMemo, Show, For, Component } from "solid-js";
 import type { PluginPanelProps, PluginSettingsProps } from "@ericsanchezok/synergy-plugin/ui";
 
